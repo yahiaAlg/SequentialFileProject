@@ -87,17 +87,24 @@ int updateRecord(SequentialFile *file, int id, const char *newData) {
     Block *current = file->head;
 
     while (current) {
-        int offset = 0;
-        while (offset < current->blockSize - current->freeSpace) {
-            Record *record = (Record *)(current->data + offset);
-            if (record->id == id) {
-                free(record->data); // Free the old data
-                record->size = strlen(newData) + 1;
-                record->data = (char *)malloc(record->size);
+        char *ptr = current->data;
+        int remaining = current->blockSize - current->freeSpace;
+        
+        while (remaining > 0) {
+            Record *record = (Record *)ptr;
+            if (record->id == id && record->id != -1) {
+                // Calculate new size
+                int newSize = strlen(newData) + 1;
+                // Free old data
+                free(record->data);
+                // Allocate and copy new data
+                record->data = (char *)malloc(newSize);
                 strcpy(record->data, newData);
+                record->size = newSize;
                 return 1; // Success
             }
-            offset += sizeof(int) + record->size;
+            ptr += sizeof(Record) + record->size;
+            remaining -= (sizeof(Record) + record->size);
         }
         current = current->next;
     }
@@ -109,45 +116,22 @@ int deleteRecord(SequentialFile *file, int id) {
     Block *current = file->head;
 
     while (current) {
-        int offset = 0;
-        while (offset < current->blockSize - current->freeSpace) {
-            Record *record = (Record *)(current->data + offset);
-            if (record->id == id) {
+        char *ptr = current->data;
+        int remaining = current->blockSize - current->freeSpace;
+        
+        while (remaining > 0) {
+            Record *record = (Record *)ptr;
+            if (record->id == id && record->id != -1) {
                 record->id = -1; // Mark as deleted
                 return 1; // Success
             }
-            offset += sizeof(int) + record->size;
+            ptr += sizeof(Record) + record->size;
+            remaining -= (sizeof(Record) + record->size);
         }
         current = current->next;
     }
     return 0; // Record not found
 }
-
-
-// Record *searchRecord(SequentialFile *file, int key) {
-//     Block *current = file->head;
-
-//     while (current) {
-//         Record *records = (Record *)current->data;
-//         int left = 0, right = (current->blockSize - current->freeSpace) / sizeof(Record) - 1;
-
-//         // Binary search within the block
-//         while (left <= right) {
-//             int mid = (left + right) / 2;
-//             if (records[mid].id == key) {
-//                 return &records[mid];
-//             } else if (records[mid].id < key) {
-//                 left = mid + 1;
-//             } else {
-//                 right = mid - 1;
-//             }
-//         }
-
-//         current = current->next;
-//     }
-
-//     return NULL; // Not found
-// }
 
 
 Record *searchRecord(SequentialFile *file, int key) {

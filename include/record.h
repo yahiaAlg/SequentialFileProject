@@ -3,8 +3,8 @@
 
 typedef struct {
     int id;           // Record identifier
+    int size;         // Size of the data
     char *data;       // Dynamically allocated record data
-    int size;         // Size of the record
 } Record;
 
 // Function prototypes

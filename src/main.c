@@ -105,7 +105,7 @@ void handleReadOne(SequentialFile *file) {
         printf("+------------+----------------+\n");
         printf("| Record ID  | Data           |\n");
         printf("+------------+----------------+\n");
-        printf("| %-10d | %-14s |\n", record->id, record->data);
+        printf("| %-10d | %-100s |\n", record->id, record->data);
         printf("+------------+----------------+\n");
     } else {
         printf("Record not found.\n");
@@ -124,7 +124,7 @@ void handleUpdate(SequentialFile *file) {
         printf("+------------+----------------+\n");
         printf("| Record ID  | Data           |\n");
         printf("+------------+----------------+\n");
-        printf("| %-10d | %-14s |\n", record->id, record->data);
+        printf("| %-10d | %-100s |\n", record->id, record->data);
         printf("+------------+----------------+\n\n");
 
         printf("Enter New Data: ");
@@ -136,7 +136,7 @@ void handleUpdate(SequentialFile *file) {
             printf("+------------+----------------+\n");
             printf("| Record ID  | Data           |\n");
             printf("+------------+----------------+\n");
-            printf("| %-10d | %-14s |\n", record->id, record->data);
+            printf("| %-10d | %-100s |\n", record->id, record->data);
             printf("+------------+----------------+\n");
         } else {
             printf("Error updating record.\n");
