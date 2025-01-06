@@ -13,6 +13,43 @@ SequentialFile *initializeFile(int blockSize, int isContiguous, int isOrdered, i
     return file;
 }
 
+// void insertRecord(SequentialFile *file, Record *record) {
+//     Block *current = file->head;
+
+//     // Create first block if the file is empty
+//     if (!current) {
+//         file->head = createBlock(file->blockSize);
+//         current = file->head;
+//     }
+
+//     while (current) {
+//         // If record fits in the current block
+//         if (record->size <= current->freeSpace) {
+//             memcpy(current->data + (current->blockSize - current->freeSpace), record, record->size);
+//             current->freeSpace -= record->size;
+//             return;
+//         } 
+
+//         // If overlap is allowed, split the record
+//         if (file->allowOverlap && current->freeSpace > 0) {
+//             int partSize = current->freeSpace;
+//             memcpy(current->data + (current->blockSize - current->freeSpace), record, partSize);
+//             current->freeSpace = 0;
+
+//             // Adjust the record for the remaining part
+//             record->size -= partSize;
+//             record->data += partSize;
+//         }
+
+//         // Move to the next block or create a new block
+//         if (!current->next) {
+//             current->next = createBlock(file->blockSize);
+//         }
+//         current = current->next;
+//     }
+// }
+
+
 void insertRecord(SequentialFile *file, Record *record) {
     Block *current = file->head;
 
@@ -24,21 +61,18 @@ void insertRecord(SequentialFile *file, Record *record) {
 
     while (current) {
         // If record fits in the current block
-        if (record->size <= current->freeSpace) {
-            memcpy(current->data + (current->blockSize - current->freeSpace), record, record->size);
-            current->freeSpace -= record->size;
+        if (sizeof(Record) + record->size <= current->freeSpace) {
+            char *insertPoint = current->data + (current->blockSize - current->freeSpace);
+            
+            // Copy the Record structure
+            memcpy(insertPoint, record, sizeof(Record));
+            
+            // Copy the data string
+            char *dataPoint = insertPoint + sizeof(Record);
+            memcpy(dataPoint, record->data, record->size);
+            
+            current->freeSpace -= (sizeof(Record) + record->size);
             return;
-        } 
-
-        // If overlap is allowed, split the record
-        if (file->allowOverlap && current->freeSpace > 0) {
-            int partSize = current->freeSpace;
-            memcpy(current->data + (current->blockSize - current->freeSpace), record, partSize);
-            current->freeSpace = 0;
-
-            // Adjust the record for the remaining part
-            record->size -= partSize;
-            record->data += partSize;
         }
 
         // Move to the next block or create a new block
@@ -90,29 +124,51 @@ int deleteRecord(SequentialFile *file, int id) {
 }
 
 
+// Record *searchRecord(SequentialFile *file, int key) {
+//     Block *current = file->head;
+
+//     while (current) {
+//         Record *records = (Record *)current->data;
+//         int left = 0, right = (current->blockSize - current->freeSpace) / sizeof(Record) - 1;
+
+//         // Binary search within the block
+//         while (left <= right) {
+//             int mid = (left + right) / 2;
+//             if (records[mid].id == key) {
+//                 return &records[mid];
+//             } else if (records[mid].id < key) {
+//                 left = mid + 1;
+//             } else {
+//                 right = mid - 1;
+//             }
+//         }
+
+//         current = current->next;
+//     }
+
+//     return NULL; // Not found
+// }
+
+
 Record *searchRecord(SequentialFile *file, int key) {
     Block *current = file->head;
 
     while (current) {
-        Record *records = (Record *)current->data;
-        int left = 0, right = (current->blockSize - current->freeSpace) / sizeof(Record) - 1;
-
-        // Binary search within the block
-        while (left <= right) {
-            int mid = (left + right) / 2;
-            if (records[mid].id == key) {
-                return &records[mid];
-            } else if (records[mid].id < key) {
-                left = mid + 1;
-            } else {
-                right = mid - 1;
+        char *ptr = current->data;
+        int remaining = current->blockSize - current->freeSpace;
+        
+        while (remaining > 0) {
+            Record *record = (Record *)ptr;
+            if (record->id == key && record->id != -1) {
+                return record;
             }
+            ptr += sizeof(Record) + record->size;
+            remaining -= (sizeof(Record) + record->size);
         }
-
         current = current->next;
     }
 
-    return NULL; // Not found
+    return NULL;
 }
 
 
@@ -175,14 +231,18 @@ void printFile(SequentialFile *file) {
     printf("+------------+----------------+\n");
 
     while (current) {
-        int offset = 0;
-        while (offset < current->blockSize - current->freeSpace) {
-            Record *record = (Record *)(current->data + offset);
-            printf("| %-10d | %-14s |\n", record->id, record->data);
-            offset += sizeof(int) + record->size; // Move to the next record
+        char *ptr = current->data;
+        int remaining = current->blockSize - current->freeSpace;
+        
+        while (remaining > 0) {
+            Record *record = (Record *)ptr;
+            if (record->id != -1) {  // Only print non-deleted records
+                printf("| %-10d | %-14s |\n", record->id, record->data);
+            }
+            ptr += sizeof(Record) + record->size;
+            remaining -= (sizeof(Record) + record->size);
         }
         current = current->next;
-        blockNumber++;
     }
 
     printf("+------------+----------------+\n");

@@ -99,9 +99,14 @@ void handleReadOne(SequentialFile *file) {
     printf("Enter Record ID to Search: ");
     scanf("%d", &id);
 
-    Record *record = binarySearchInFile(file, id);
+    Record *record = searchRecord(file, id);
     if (record) {
-        printf("Record Found: ID=%d, Data=%s\n", record->id, record->data);
+        printf("\nRecord Found:\n");
+        printf("+------------+----------------+\n");
+        printf("| Record ID  | Data           |\n");
+        printf("+------------+----------------+\n");
+        printf("| %-10d | %-14s |\n", record->id, record->data);
+        printf("+------------+----------------+\n");
     } else {
         printf("Record not found.\n");
     }
@@ -112,11 +117,30 @@ void handleUpdate(SequentialFile *file) {
     char newData[256];
     printf("Enter Record ID to Update: ");
     scanf("%d", &id);
-    printf("Enter New Data: ");
-    scanf(" %[^\n]", newData);
 
-    if (updateRecord(file, id, newData)) {
-        printf("Record updated successfully.\n");
+    Record *record = searchRecord(file, id);
+    if (record) {
+        printf("\nCurrent Record:\n");
+        printf("+------------+----------------+\n");
+        printf("| Record ID  | Data           |\n");
+        printf("+------------+----------------+\n");
+        printf("| %-10d | %-14s |\n", record->id, record->data);
+        printf("+------------+----------------+\n\n");
+
+        printf("Enter New Data: ");
+        scanf(" %[^\n]", newData);
+
+        if (updateRecord(file, id, newData)) {
+            printf("\nRecord updated successfully:\n");
+            record = searchRecord(file, id);
+            printf("+------------+----------------+\n");
+            printf("| Record ID  | Data           |\n");
+            printf("+------------+----------------+\n");
+            printf("| %-10d | %-14s |\n", record->id, record->data);
+            printf("+------------+----------------+\n");
+        } else {
+            printf("Error updating record.\n");
+        }
     } else {
         printf("Record not found.\n");
     }
