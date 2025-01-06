@@ -60,22 +60,28 @@ void insertRecord(SequentialFile *file, Record *record) {
     }
 
     while (current) {
+        // Calculate total space needed for the record
+        int totalSpace = sizeof(Record) + record->size;
+        
         // If record fits in the current block
-        if (sizeof(Record) + record->size <= current->freeSpace) {
+        if (totalSpace <= current->freeSpace) {
             char *insertPoint = current->data + (current->blockSize - current->freeSpace);
             
-            // Copy the Record structure
-            memcpy(insertPoint, record, sizeof(Record));
+            // Create a new record in the block
+            Record *newRecord = (Record *)insertPoint;
+            newRecord->id = record->id;
+            newRecord->size = record->size;
             
-            // Copy the data string
-            char *dataPoint = insertPoint + sizeof(Record);
+            // Copy the data right after the record structure
+            char *dataPoint = (char *)(insertPoint + sizeof(Record));
             memcpy(dataPoint, record->data, record->size);
+            newRecord->data = dataPoint;
             
-            current->freeSpace -= (sizeof(Record) + record->size);
+            current->freeSpace -= totalSpace;
             return;
         }
 
-        // Move to the next block or create a new block
+        // Move to next block or create new one
         if (!current->next) {
             current->next = createBlock(file->blockSize);
         }
@@ -90,27 +96,52 @@ int updateRecord(SequentialFile *file, int id, const char *newData) {
         char *ptr = current->data;
         int remaining = current->blockSize - current->freeSpace;
         
-        while (remaining > 0) {
+        while (remaining > sizeof(Record)) {
             Record *record = (Record *)ptr;
-            if (record->id == id && record->id != -1) {
-                // Calculate new size
-                int newSize = strlen(newData) + 1;
-                // Free old data
-                free(record->data);
-                // Allocate and copy new data
-                record->data = (char *)malloc(newSize);
-                strcpy(record->data, newData);
-                record->size = newSize;
-                return 1; // Success
+            
+            // Skip if record is deleted or if we've processed all valid records
+            if (record->id == -1 || record->size <= 0) {
+                break;
             }
+            
+            if (record->id == id) {
+                // Store old size for space calculation
+                int oldSize = record->size;
+                int newSize = strlen(newData) + 1;
+                
+                // If new data is smaller or equal to old space
+                if (newSize <= oldSize) {
+                    memcpy(record->data, newData, newSize);
+                    record->size = newSize;
+                } else {
+                    // If new data is larger, we need to ensure we have enough space
+                    int extraSpaceNeeded = newSize - oldSize;
+                    if (current->freeSpace >= extraSpaceNeeded) {
+                        // Create new data storage
+                        char *newDataStorage = ptr + sizeof(Record);
+                        memmove(newDataStorage + extraSpaceNeeded, 
+                               newDataStorage + oldSize, 
+                               remaining - (sizeof(Record) + oldSize));
+                        memcpy(newDataStorage, newData, newSize);
+                        record->data = newDataStorage;
+                        record->size = newSize;
+                        current->freeSpace -= extraSpaceNeeded;
+                    } else {
+                        printf("Error: Not enough space for the update\n");
+                        return 0;
+                    }
+                }
+                return 1;
+            }
+            
+            // Move to next record
             ptr += sizeof(Record) + record->size;
             remaining -= (sizeof(Record) + record->size);
         }
         current = current->next;
     }
-    return 0; // Record not found
+    return 0;
 }
-
 
 int deleteRecord(SequentialFile *file, int id) {
     Block *current = file->head;
@@ -207,12 +238,11 @@ void freeFile(SequentialFile *file) {
 // Function to print the sequential file in a human-readable format
 void printFile(SequentialFile *file) {
     Block *current = file->head;
-    int blockNumber = 1;
-
+    
     printf("\nSequential File Contents:\n");
-    printf("+------------+----------------+\n");
-    printf("| Record ID  | Data           |\n");
-    printf("+------------+----------------+\n");
+    printf("+------------+-----------------+\n");
+    printf("| Record ID  | Data            |\n");
+    printf("+------------+-----------------+\n");
 
     while (current) {
         char *ptr = current->data;
@@ -221,17 +251,18 @@ void printFile(SequentialFile *file) {
         while (remaining > 0) {
             Record *record = (Record *)ptr;
             if (record->id != -1) {  // Only print non-deleted records
-                printf("| %-10d | %-14s |\n", record->id, record->data);
+                printf("| %-10d | %-15s |\n", record->id, record->data);
             }
+            // Move pointer to next record
             ptr += sizeof(Record) + record->size;
             remaining -= (sizeof(Record) + record->size);
+            
+            if (remaining < sizeof(Record)) break;
         }
         current = current->next;
     }
-
-    printf("+------------+----------------+\n");
+    printf("+------------+-----------------+\n");
 }
-
 
 Record *binarySearchInFile(SequentialFile *file, int key) {
     if (!file->isOrdered) {

@@ -102,21 +102,23 @@ void handleReadOne(SequentialFile *file) {
     Record *record = searchRecord(file, id);
     if (record) {
         printf("\nRecord Found:\n");
-        printf("+------------+----------------+\n");
-        printf("| Record ID  | Data           |\n");
-        printf("+------------+----------------+\n");
-        printf("| %-10d | %-100s |\n", record->id, record->data);
-        printf("+------------+----------------+\n");
+        printf("+------------+-----------------+\n");
+        printf("| Record ID  | Data            |\n");
+        printf("+------------+-----------------+\n");
+        printf("| %-10d | %-15s |\n", record->id, record->data);
+        printf("+------------+-----------------+\n");
     } else {
         printf("Record not found.\n");
     }
 }
+
 
 void handleUpdate(SequentialFile *file) {
     int id;
     char newData[256];
     printf("Enter Record ID to Update: ");
     scanf("%d", &id);
+    getchar(); // Clear the input buffer
 
     Record *record = searchRecord(file, id);
     if (record) {
@@ -124,27 +126,38 @@ void handleUpdate(SequentialFile *file) {
         printf("+------------+----------------+\n");
         printf("| Record ID  | Data           |\n");
         printf("+------------+----------------+\n");
-        printf("| %-10d | %-100s |\n", record->id, record->data);
+        printf("| %-10d | %-14s |\n", record->id, record->data);
         printf("+------------+----------------+\n\n");
 
         printf("Enter New Data: ");
-        scanf(" %[^\n]", newData);
+        if (fgets(newData, sizeof(newData), stdin) != NULL) {
+            // Remove trailing newline if present
+            size_t len = strlen(newData);
+            if (len > 0 && newData[len-1] == '\n') {
+                newData[len-1] = '\0';
+            }
 
-        if (updateRecord(file, id, newData)) {
-            printf("\nRecord updated successfully:\n");
-            record = searchRecord(file, id);
-            printf("+------------+----------------+\n");
-            printf("| Record ID  | Data           |\n");
-            printf("+------------+----------------+\n");
-            printf("| %-10d | %-100s |\n", record->id, record->data);
-            printf("+------------+----------------+\n");
+            if (updateRecord(file, id, newData)) {
+                printf("\nRecord updated successfully:\n");
+                record = searchRecord(file, id);
+                if (record) {
+                    printf("+------------+----------------+\n");
+                    printf("| Record ID  | Data           |\n");
+                    printf("+------------+----------------+\n");
+                    printf("| %-10d | %-14s |\n", record->id, record->data);
+                    printf("+------------+----------------+\n");
+                }
+            } else {
+                printf("Error updating record. The new data might be too large for the available space.\n");
+            }
         } else {
-            printf("Error updating record.\n");
+            printf("Error reading new data.\n");
         }
     } else {
         printf("Record not found.\n");
     }
 }
+
 
 void handleDelete(SequentialFile *file) {
     int id;
