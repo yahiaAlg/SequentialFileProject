@@ -185,6 +185,46 @@ Record *searchRecord(SequentialFile *file, int key) {
     return NULL;
 }
 
+void searchRecordsByRange(SequentialFile *file, int startKey, int endKey) {
+    Block *current = file->head;
+    int recordsFound = 0;
+
+    // Print header for results
+    printf("\nRecords with keys between %d and %d:\n", startKey, endKey);
+    printf("+------------+-----------------+\n");
+    printf("| Record ID  | Data            |\n");
+    printf("+------------+-----------------+\n");
+
+    while (current) {
+        char *ptr = current->data;
+        int remaining = current->blockSize - current->freeSpace;
+        
+        while (remaining >= sizeof(Record)) {
+            Record *record = (Record *)ptr;
+            
+            // Check if record is valid and within range
+            if (record->id != -1 && record->id >= startKey && record->id <= endKey) {
+                printf("| %-10d | %-15s |\n", record->id, record->data);
+                recordsFound++;
+            }
+            
+            // Move to next record
+            int recordSize = sizeof(Record) + record->size;
+            ptr += recordSize;
+            remaining -= recordSize;
+        }
+        current = current->next;
+    }
+    
+    printf("+------------+-----------------+\n");
+    
+    if (recordsFound == 0) {
+        printf("No records found within the specified range.\n");
+    } else {
+        printf("Total records found: %d\n", recordsFound);
+    }
+}
+
 
 void reorganizeFile(SequentialFile *file) {
     if (file->isOrdered) return; // Skip for ordered files

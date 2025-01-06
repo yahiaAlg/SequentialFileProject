@@ -9,6 +9,7 @@ void displayMenu();
 void handleInsert(SequentialFile *file);
 void handleReadAll(SequentialFile *file);
 void handleReadOne(SequentialFile *file);
+void handleRangeSearch(SequentialFile *file);
 void handleUpdate(SequentialFile *file);
 void handleDelete(SequentialFile *file);
 
@@ -54,6 +55,9 @@ int main() {
                 freeFile(file);
                 printf("Exiting program...\n");
                 exit(0);
+            case 10:
+                handleRangeSearch(file);
+                break;
             default:
                 printf("Invalid choice! Please try again.\n");
         }
@@ -73,6 +77,7 @@ void displayMenu() {
     printf("7. Load File from Disk\n");
     printf("8. Delete File from Disk\n");
     printf("9. Exit\n");
+    printf("10. Search Records by Range\n");  
     printf("============================\n");
 }
 
@@ -112,6 +117,24 @@ void handleReadOne(SequentialFile *file) {
     }
 }
 
+
+// Add this function to handle range search
+void handleRangeSearch(SequentialFile *file) {
+    int startKey, endKey;
+    
+    printf("Enter start key of range: ");
+    scanf("%d", &startKey);
+    
+    printf("Enter end key of range: ");
+    scanf("%d", &endKey);
+    
+    if (startKey > endKey) {
+        printf("Error: Start key cannot be greater than end key!\n");
+        return;
+    }
+    
+    searchRecordsByRange(file, startKey, endKey);
+}
 
 void handleUpdate(SequentialFile *file) {
     int id;

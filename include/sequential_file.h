@@ -19,6 +19,8 @@ void insertRecord(SequentialFile *file, Record *record);
 int updateRecord(SequentialFile *file, int id, const char *newData);
 int deleteRecord(SequentialFile *file, int id);
 Record *searchRecord(SequentialFile *file, int key);
+// Add this prototype
+void searchRecordsByRange(SequentialFile *file, int startKey, int endKey);
 void reorganizeFile(SequentialFile *file);
 void freeFile(SequentialFile *file);
 void printFile(SequentialFile *file);
