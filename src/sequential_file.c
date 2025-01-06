@@ -72,10 +72,9 @@ void insertRecord(SequentialFile *file, Record *record) {
             newRecord->id = record->id;
             newRecord->size = record->size;
             
-            // Copy the data right after the record structure
-            char *dataPoint = (char *)(insertPoint + sizeof(Record));
-            memcpy(dataPoint, record->data, record->size);
-            newRecord->data = dataPoint;
+            // Allocate and copy the data
+            newRecord->data = (char *)malloc(record->size);
+            memcpy(newRecord->data, record->data, record->size);
             
             current->freeSpace -= totalSpace;
             return;
@@ -89,6 +88,7 @@ void insertRecord(SequentialFile *file, Record *record) {
     }
 }
 
+
 int updateRecord(SequentialFile *file, int id, const char *newData) {
     Block *current = file->head;
 
@@ -99,39 +99,38 @@ int updateRecord(SequentialFile *file, int id, const char *newData) {
         while (remaining > sizeof(Record)) {
             Record *record = (Record *)ptr;
             
-            // Skip if record is deleted or if we've processed all valid records
             if (record->id == -1 || record->size <= 0) {
                 break;
             }
             
             if (record->id == id) {
-                // Store old size for space calculation
-                int oldSize = record->size;
                 int newSize = strlen(newData) + 1;
+                int totalSpaceNeeded = sizeof(Record) + newSize;
+                int oldTotalSpace = sizeof(Record) + record->size;
                 
-                // If new data is smaller or equal to old space
-                if (newSize <= oldSize) {
-                    memcpy(record->data, newData, newSize);
+                // Calculate the actual space difference needed
+                int spaceDifference = totalSpaceNeeded - oldTotalSpace;
+                
+                // If new data fits in the current space or we have enough free space
+                if (spaceDifference <= current->freeSpace) {
+                    // Free old data and allocate new
+                    free(record->data);
+                    record->data = (char *)malloc(newSize);
+                    strcpy(record->data, newData);
                     record->size = newSize;
-                } else {
-                    // If new data is larger, we need to ensure we have enough space
-                    int extraSpaceNeeded = newSize - oldSize;
-                    if (current->freeSpace >= extraSpaceNeeded) {
-                        // Create new data storage
-                        char *newDataStorage = ptr + sizeof(Record);
-                        memmove(newDataStorage + extraSpaceNeeded, 
-                               newDataStorage + oldSize, 
-                               remaining - (sizeof(Record) + oldSize));
-                        memcpy(newDataStorage, newData, newSize);
-                        record->data = newDataStorage;
-                        record->size = newSize;
-                        current->freeSpace -= extraSpaceNeeded;
+                    
+                    // Update the block's free space only if we're using more space
+                    if (spaceDifference > 0) {
+                        current->freeSpace -= spaceDifference;
                     } else {
-                        printf("Error: Not enough space for the update\n");
-                        return 0;
+                        // If new data is smaller, we gain some free space
+                        current->freeSpace -= spaceDifference;
                     }
+                    return 1;
+                } else {
+                    printf("Error: Not enough space for the update\n");
+                    return 0;
                 }
-                return 1;
             }
             
             // Move to next record
